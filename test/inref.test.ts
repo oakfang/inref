@@ -34,11 +34,13 @@ describe("inref", () => {
       foo: boolean;
       bar: boolean;
       buzz: boolean;
+      meow: boolean;
     }
     const o = inref<X>(ref => ({
       foo: true,
       bar: ref(root => root.buzz),
-      buzz: ref(root => root.foo)
+      buzz: ref(root => root.meow),
+      meow: ref(root => root.foo)
     }));
     expect(o.bar).toBe(true);
   });
@@ -73,5 +75,23 @@ describe("inref", () => {
       bar: unref([ref(root => root.foo)])
     }));
     expect(o2.bar[0]).not.toBe(true);
+  });
+
+  it('handles "complex" operators well', () => {
+    interface Theme {
+      typography: {
+        normal: number;
+        header: number;
+        subheader: number;
+      };
+    }
+    const theme = inref<Theme>(ref => ({
+      typography: {
+        normal: 1,
+        subheader: ref(root => root.typography.header / 2),
+        header: ref(root => root.typography.normal * 3)
+      }
+    }));
+    expect(theme.typography.subheader).toBe(1.5);
   });
 });

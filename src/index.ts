@@ -2,10 +2,14 @@ const REF_SYM = Symbol("@@ref");
 
 interface Ref<T extends object, U> {
   [REF_SYM]: (root: T) => U;
+  [Symbol.toPrimitive]: () => void;
 }
 
 const createRef = <T extends object, U>(lambda: (root: T) => U) => ({
-  [REF_SYM]: lambda
+  [REF_SYM]: lambda,
+  [Symbol.toPrimitive]() {
+    throw this;
+  }
 });
 
 const isRef = (obj: any) => obj && obj[REF_SYM];
@@ -35,7 +39,7 @@ export default function inref<T extends object>(
 ) {
   const refs: Ref<T, any>[] = [];
   const bl = new WeakSet();
-  const visited = new WeakSet();
+  const dependencies = new Map<Ref<T, any>, Set<Ref<T, any>>>();
   const ref = <U>(lambda: (root: T) => U): U => {
     const r = createRef(lambda);
     refs.push(r);
@@ -48,14 +52,11 @@ export default function inref<T extends object>(
   const root = factory(ref, unref);
   while (refs.length) {
     const r = refs.shift() as Ref<T, any>;
-    const value = r[REF_SYM](root);
-    if (isRef(value)) {
-      if (visited.has(r)) {
-        throw new Error("cyclic ref");
+    try {
+      const value = r[REF_SYM](root);
+      if (isRef(value)) {
+        throw value;
       }
-      visited.add(r);
-      refs.push(r);
-    } else {
       const path = findPath(root, r, bl);
       if (path) {
         let pointer = root;
@@ -66,7 +67,26 @@ export default function inref<T extends object>(
         // @ts-ignore
         pointer[path[0]] = value;
       }
+      if (dependencies.has(r)) {
+        for (let dep of dependencies.get(r)!) {
+          refs.push(dep);
+        }
+        dependencies.delete(r);
+      }
+    } catch (err) {
+      if (isRef(err)) {
+        const deriveFrom = err;
+        if (!dependencies.has(deriveFrom)) {
+          dependencies.set(deriveFrom, new Set());
+        }
+        dependencies.get(deriveFrom)!.add(r);
+      } else {
+        throw err;
+      }
     }
   }
+  if (dependencies.size) {
+    throw new Error("cyclic ref");
+  }
   return root;
-};
+}

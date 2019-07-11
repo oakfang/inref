@@ -35,3 +35,28 @@ export const theme = inref(ref => ({
 console.log(theme.components.titleColor); // -> '#0084FF'
 
 ```
+
+### Optimising
+
+In order to reset the ref value, `inref` traverses the root object. This is done so that the return value is an actual, non-proxied, object. All computations are eager.
+
+However, this also means that large, nested, sub-objects (such as huge arrays) may be scanned for no good reason.
+When you'd like to optimise this behaviour away, you can use the second argument of the `inref` function:
+
+```js
+import inref from "inref";
+
+// un-optimised
+const o = infer(ref => ({
+  foo: true,
+  array: Array.from({ length: 100000 }),
+  bar: ref(root => root.foo)
+}));
+
+// optimised
+const o = infer((ref, unref) => ({
+  foo: true,
+  array: unref(Array.from({ length: 100000 })),
+  bar: ref(root => root.foo)
+}));
+```
