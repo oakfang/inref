@@ -1,6 +1,7 @@
 {
   "name": "inref",
   "version": "0.1.0",
+  "description": "Create self referencing objects",
   "main": "dist/index.js",
   "umd:main": "dist/inref.umd.production.js",
   "module": "dist/inref.es.production.js",
